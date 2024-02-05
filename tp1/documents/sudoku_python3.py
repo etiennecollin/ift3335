@@ -252,11 +252,13 @@ hard1 = ".....6....59.....82....8....45........3........6..3.54...325..6........
 if __name__ == "__main__":
     test()
     solve_all(from_file("top_95.txt"), "95sudoku", None)
+    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None)
+    solve_all(from_file("sudoku_100.txt"), "sudoku_100", None)
     # solve_all(from_file("easy50.txt", '========'), "easy", None)
     # solve_all(from_file("easy50.txt", '========'), "easy", None)
     # solve_all(from_file("top95.txt"), "hard", None)
     # solve_all(from_file("hardest.txt"), "hardest", None)
-    # solve_all([random_puzzle() for _ in range(99)], "random", 100.0)
+    solve_all([random_puzzle() for _ in range(99)], "random", 100.0)
 
 ## References used:
 ## http://www.scanraid.com/BasicStrategies.htm
