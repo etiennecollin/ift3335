@@ -156,9 +156,12 @@ def search(values):
     if all(len(values[s]) == 1 for s in squares):
         return values  ## Solved!
     
+
+    #'''
+    def heuristique(values,s):
     # premiere heuristique : naked pair
     # for each values, search if there is a naked pair, if so adapt possibilities 
-    for s in squares:
+    #for s in squares:
         if len(values[s])==2:
             for t in peers[s]:
                 if len(values[t])==2:
@@ -173,16 +176,50 @@ def search(values):
                         for u in mutual_peers:
                             for c in doublon:
                                 eliminate(values.copy(), u, c) 
-    if all(len(values[s]) == 1 for s in squares):
-        return values  ## Solved!
+        if all(len(values[s]) == 1 for s in squares):
+            return values  ## Solved!
+    #'''
+    def heuristique1(values,s):
+    # heuristique : hidden pairs
+        #for s in squares:
+            if len(values[s])>2: 
+                for t in peers[s]:
+                    if len(values[t])>2:
+                        val_s = values[s]
+                        val_t = values[t]
+                        mutual_val = set(val_s).intersection(val_t) 
+                        all_val = set(val_s).union(val_t)
+                        if len(mutual_val)>=2: 
+                            p1 = peers[s].copy()
+                            p1.remove(t)
+                            p2 = peers[t].copy()
+                            p2.remove(s)
+                            mutual_peers=set()
+                            for sommet in p1.union(p2):
+                                mutual_peers = mutual_peers.union(values[sommet])  # toutes les valeurs pour un des peers
+                            possible_pair = mutual_val.discard(mutual_peers) # valeurs dans les deux cases absentes dans les peers
+                            if not possible_pair==None:
+                                if len(possible_pair)==2 : 
+                                    for c in all_val:
+                                        if c not in possible_pair:
+                                            eliminate(values.copy(), s, c)
+                                            eliminate(values.copy(), t, c)
+            if all(len(values[s]) == 1 for s in squares):
+                return values  ## Solved!                 
+
+
+
 
     ## Chose the unfilled square s with the fewest possibilities
     n, s = min((len(values[s]), s) for s in squares if len(values[s]) > 1)
 
-    # question 2 de TP
-    n, s = random.choice(
-        list(((len(values[s]), s) for s in squares if len(values[s]) > 1))
-    )  # choisir case et chiffre au hasard
+    heuristique1(values,s)
+    heuristique(values,s)
+
+    ## question 2 de TP
+    #n, s = random.choice(
+    #    list(((len(values[s]), s) for s in squares if len(values[s]) > 1))
+    #)  # choisir case et chiffre au hasard
 
     return some(search(assign(values.copy(), s, d)) for d in values[s])
 
