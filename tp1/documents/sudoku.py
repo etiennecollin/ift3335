@@ -110,7 +110,8 @@ def eliminate(values, s, d):
     if d not in values[s]:
         return values  ## Already eliminated
     values[s] = values[s].replace(d, "")
-    ## (1) If a square s is reduced to one value d2, then eliminate d2 from the peers.
+
+     ## (1) If a square s is reduced to one value d2, then eliminate d2 from the peers.
     if len(values[s]) == 0:
         return False  ## Contradiction: removed last value
     elif len(values[s]) == 1:
@@ -126,6 +127,75 @@ def eliminate(values, s, d):
             # d can only be in one place in unit; assign it there
             if not assign(values, dplaces[0], d):
                 return False
+
+    def heuristique_broken_NakedPair(values,s):
+    # premiere heuristique : naked pair
+    # for each values, search if there is a naked pair, if so adapt possibilities 
+    #for s in squares:
+        for s in squares:
+            vois = values[s]
+            if values[s]=="":
+                print('probleme')
+                print(s)
+
+        if len(values[s])==2:  
+            for t in peers[s]:
+                if values[s]==values[t]: # s et t ont les deux mm indices
+                    print('la paire:')
+                    print(values[s])
+                    print(values[t])
+                    doublon = values[s] # a enlevé des peers respectif 
+                    # there is a hidden pair find mutual peers and eliminate the two values
+                    for u in peers[s] & (peers[t]):
+                        print(values[u])
+                        print(':')
+                    #for c in doublon:
+                        if not all(eliminate(values, u, d2) for d2 in doublon):
+                        #if all(eliminate(values, u, d2) for d2 in values[u].replace(doublon, "")):
+                            return False
+                        #else:
+                        #    print('went there')
+                    break
+    heuristique_broken_NakedPair(values,s)
+            
+    def heuristique_broken_hiddenPair(values,s):
+    # heuristique : hidden pairs
+            if len(values[s])>=2: 
+                for t in peers[s]:
+                    if len(values[t])>=2:
+                        val_s = values[s]
+                        val_t = values[t]
+                        mutual_val = set(val_s) & set(val_t) # chiffres dans les deux cases
+                        if len(mutual_val)>=2: 
+                                mutual_peers=peers[s].intersection(peers[t]) # peers commun
+                                possible_pair = mutual_val.copy()
+                                for c in mutual_peers:
+                                    possible_pair = possible_pair - set(values[c])
+                                if not possible_pair==None:
+                                    if len(possible_pair)==2 : # ya une hid pair
+                                        #values[s]=str(possible_pair)
+                                        #values[t]=str(possible_pair)
+                                        #eliminate_value = mutual_val - possible_pair
+                                        print(val_s)
+                                        print(val_t)
+                                        print(possible_pair)
+                                        eliminate_s = set(val_s) - possible_pair
+                                        eliminate_t = set(val_t) - possible_pair
+                                        if not all(eliminate(values, s, d2) for d2 in eliminate_s) or not all(eliminate(values, t, d2) for d2 in eliminate_t):
+                                        #        
+                                        #    print("went there")
+                                            return False
+                                        else :
+                                            print(values[s])
+                                            print(values[t])
+                                            print("suppose marche")
+                                            return values
+                                    break
+                                           
+                                    
+    #heuristique_broken_hiddenPair(values,s)
+            
+    
     return values
 
 
@@ -157,7 +227,7 @@ def search(values):
         return values  ## Solved!
     
 
-    #'''
+    '''
     def heuristique(values,s):
     # premiere heuristique : naked pair
     # for each values, search if there is a naked pair, if so adapt possibilities 
@@ -178,7 +248,8 @@ def search(values):
                                 eliminate(values.copy(), u, c) 
         if all(len(values[s]) == 1 for s in squares):
             return values  ## Solved!
-    #'''
+    '''
+    '''
     def heuristique1(values,s):
     # heuristique : hidden pairs
         #for s in squares:
@@ -207,14 +278,17 @@ def search(values):
             if all(len(values[s]) == 1 for s in squares):
                 return values  ## Solved!                 
 
-
+        '''
 
 
     ## Chose the unfilled square s with the fewest possibilities
+    
+    print()
+    print([(len(values[s]), s) for s in squares])
     n, s = min((len(values[s]), s) for s in squares if len(values[s]) > 1)
 
-    heuristique1(values,s)
-    heuristique(values,s)
+    #heuristique1(values,s)
+    #heuristique(values,s)
 
     ## question 2 de TP
     #n, s = random.choice(
@@ -259,22 +333,22 @@ def solve_all(grids, name="", showif=0.0):
     When showif is None, don't display any puzzles."""
 
     def time_solve(grid):
-        start = time.time()
+        start = time.time_ns()
         values = solve(grid)
-        t = time.time() - start
+        t = time.time_ns() - start
         ## Display puzzles that take long enough
         if showif is not None and t > showif:
             display(grid_values(grid))
             if values:
                 display(values)
-            print("(%.2f seconds)\n" % t)
+            print("(%.2f nanoseconds)\n" % t)
         return (t, solved(values))
 
     times, results = zip(*[time_solve(grid) for grid in grids])
     N = len(grids)
     if N > 1:
         print(
-            "Solved %d of %d %s puzzles (avg %.2f secs (%d Hz), max %.2f secs)."
+            "Solved %d of %d %s puzzles (avg %.2f nanosecs (%d Hz), max %.2f nanosecs)."
             % (sum(results), N, name, sum(times) / N, N / sum(times), max(times))
         )
 
@@ -315,7 +389,7 @@ if __name__ == "__main__":
     # solve_all(from_file("easy50.txt", '========'), "easy", None)
     # solve_all(from_file("top95.txt"), "hard", None)
     # solve_all(from_file("hardest.txt"), "hardest", None)
-    solve_all([random_puzzle() for _ in range(99)], "random", 100.0)
+    solve_all([random_puzzle() for _ in range(99)], "random", None)
 
 ## References used:
 ## http://www.scanraid.com/BasicStrategies.htm
