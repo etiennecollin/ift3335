@@ -128,39 +128,9 @@ def eliminate(values, s, d):
             if not assign(values, dplaces[0], d):
                 return False
 
-    def heuristique_broken_NakedPair(values,s):
-    # premiere heuristique : naked pair
-    # for each values, search if there is a naked pair, if so adapt possibilities 
-    #for s in squares:
-        for s in squares:
-            vois = values[s]
-            if values[s]=="":
-                print('probleme')
-                print(s)
-
-        if len(values[s])==2:  
-            for t in peers[s]:
-                if values[s]==values[t]: # s et t ont les deux mm indices
-                    print('la paire:')
-                    print(values[s])
-                    print(values[t])
-                    doublon = values[s] # a enlevé des peers respectif 
-                    # there is a hidden pair find mutual peers and eliminate the two values
-                    for u in peers[s] & (peers[t]):
-                        print(values[u])
-                        print(':')
-                    #for c in doublon:
-                        if not all(eliminate(values, u, d2) for d2 in doublon):
-                        #if all(eliminate(values, u, d2) for d2 in values[u].replace(doublon, "")):
-                            return False
-                        #else:
-                        #    print('went there')
-                    break
-    heuristique_broken_NakedPair(values,s)
-            
-    def heuristique_broken_hiddenPair(values,s):
+    #def heuristique_broken_hiddenPair(values,s):
     # heuristique : hidden pairs
-            if len(values[s])>=2: 
+    if len(values[s])>=2: 
                 for t in peers[s]:
                     if len(values[t])>=2:
                         val_s = values[s]
@@ -172,28 +142,35 @@ def eliminate(values, s, d):
                                 for c in mutual_peers:
                                     possible_pair = possible_pair - set(values[c])
                                 if not possible_pair==None:
-                                    if len(possible_pair)==2 : # ya une hid pair
-                                        #values[s]=str(possible_pair)
-                                        #values[t]=str(possible_pair)
-                                        #eliminate_value = mutual_val - possible_pair
-                                        print(val_s)
-                                        print(val_t)
-                                        print(possible_pair)
+                                    if len(possible_pair)==2 : # il y a une hidden pair
                                         eliminate_s = set(val_s) - possible_pair
                                         eliminate_t = set(val_t) - possible_pair
                                         if not all(eliminate(values, s, d2) for d2 in eliminate_s) or not all(eliminate(values, t, d2) for d2 in eliminate_t):
-                                        #        
-                                        #    print("went there")
                                             return False
-                                        else :
-                                            print(values[s])
-                                            print(values[t])
-                                            print("suppose marche")
-                                            return values
+                                    if len(possible_pair)==3 : # il y a une hidden triplet
+                                            eliminate_s = set(val_s) - possible_pair
+                                            eliminate_t = set(val_t) - possible_pair
+                                            if not all(eliminate(values, s, d2) for d2 in eliminate_s) or not all(eliminate(values, t, d2) for d2 in eliminate_t):
+                                                return False
+                                    if len(possible_pair)==4 : # il y a une hidden quad
+                                            eliminate_s = set(val_s) - possible_pair
+                                            eliminate_t = set(val_t) - possible_pair
+                                            if not all(eliminate(values, s, d2) for d2 in eliminate_s) or not all(eliminate(values, t, d2) for d2 in eliminate_t):
+                                                return False
                                     break
-                                           
-                                    
-    #heuristique_broken_hiddenPair(values,s)
+    
+
+    #def heuristique_broken_NakedPair(values,s):
+    # premiere heuristique : naked pair
+    if len(values[s])==2:  
+            for t in peers[s]:
+                if values[s]==values[t]: # s et t ont les deux mm indices
+                    doublon = values[s] # valeurs a enleve des peers respectif 
+                    # there is a hidden pair find mutual peers and eliminate the two values
+                    for u in peers[s] & (peers[t]):
+                        if not all(eliminate(values, u, d2) for d2 in doublon):
+                            return False
+                    break # on a trouvé une naked pair : peut pas y en avoir deux                                        
             
     
     return values
@@ -227,68 +204,9 @@ def search(values):
         return values  ## Solved!
     
 
-    '''
-    def heuristique(values,s):
-    # premiere heuristique : naked pair
-    # for each values, search if there is a naked pair, if so adapt possibilities 
-    #for s in squares:
-        if len(values[s])==2:
-            for t in peers[s]:
-                if len(values[t])==2:
-                    if sorted(values[s])==sorted(values[t]):
-                        doublon = values[s]
-                        # there is a hidden pair find mutual peers and eliminate the two values
-                        p1 = peers[s].copy()
-                        p1.remove(t)
-                        p2 = peers[t].copy()
-                        p2.remove(s)
-                        mutual_peers = p1.union(p2)
-                        for u in mutual_peers:
-                            for c in doublon:
-                                eliminate(values.copy(), u, c) 
-        if all(len(values[s]) == 1 for s in squares):
-            return values  ## Solved!
-    '''
-    '''
-    def heuristique1(values,s):
-    # heuristique : hidden pairs
-        #for s in squares:
-            if len(values[s])>2: 
-                for t in peers[s]:
-                    if len(values[t])>2:
-                        val_s = values[s]
-                        val_t = values[t]
-                        mutual_val = set(val_s).intersection(val_t) 
-                        all_val = set(val_s).union(val_t)
-                        if len(mutual_val)>=2: 
-                            p1 = peers[s].copy()
-                            p1.remove(t)
-                            p2 = peers[t].copy()
-                            p2.remove(s)
-                            mutual_peers=set()
-                            for sommet in p1.union(p2):
-                                mutual_peers = mutual_peers.union(values[sommet])  # toutes les valeurs pour un des peers
-                            possible_pair = mutual_val.discard(mutual_peers) # valeurs dans les deux cases absentes dans les peers
-                            if not possible_pair==None:
-                                if len(possible_pair)==2 : 
-                                    for c in all_val:
-                                        if c not in possible_pair:
-                                            eliminate(values.copy(), s, c)
-                                            eliminate(values.copy(), t, c)
-            if all(len(values[s]) == 1 for s in squares):
-                return values  ## Solved!                 
-
-        '''
-
-
     ## Chose the unfilled square s with the fewest possibilities
-    
-    print()
-    print([(len(values[s]), s) for s in squares])
     n, s = min((len(values[s]), s) for s in squares if len(values[s]) > 1)
 
-    #heuristique1(values,s)
-    #heuristique(values,s)
 
     ## question 2 de TP
     #n, s = random.choice(
