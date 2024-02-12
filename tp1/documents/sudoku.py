@@ -261,8 +261,7 @@ def solve_all(grids, name="", showif=0.0):
     N = len(grids)
     if N > 1:
         print(
-            "Solved %d of %d %s puzzles (avg %.2f nanosecs (%d Hz), max %.2f nanosecs)."
-            % (sum(results), N, name, sum(times) / N, N / sum(times), max(times))
+            f"Solved {sum(results)}/{N} {name} puzzles:\n - {N / sum(times) * 1e9:.2f} Hz\n - avg {(sum(times) / N / 1e6):.2f} ms | {(sum(times) / N):,.2f} ns\n - max {max(times)/ 1e6:.2f} ms | {max(times):,} ns). "
         )
 
 
