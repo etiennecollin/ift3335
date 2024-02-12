@@ -92,8 +92,6 @@ def grid_values(grid):
 
 
 ################ Constraint Propagation ################
-
-
 def assign(values, s, d):
     """Eliminate all the other values (except d) from values[s] and propagate.
     Return values, except return False if a contradiction is detected."""
@@ -111,7 +109,7 @@ def eliminate(values, s, d):
         return values  ## Already eliminated
     values[s] = values[s].replace(d, "")
 
-     ## (1) If a square s is reduced to one value d2, then eliminate d2 from the peers.
+    ## (1) If a square s is reduced to one value d2, then eliminate d2 from the peers.
     if len(values[s]) == 0:
         return False  ## Contradiction: removed last value
     elif len(values[s]) == 1:
@@ -128,57 +126,61 @@ def eliminate(values, s, d):
             if not assign(values, dplaces[0], d):
                 return False
 
-    #def heuristique_broken_hiddenPair(values,s):
-    # heuristique : hidden pairs
-    if len(values[s])>=2: 
-                for t in peers[s]:
-                    if len(values[t])>=2:
-                        val_s = values[s]
-                        val_t = values[t]
-                        mutual_val = set(val_s) & set(val_t) # chiffres dans les deux cases
-                        if len(mutual_val)>=2: 
-                                mutual_peers=peers[s].intersection(peers[t]) # peers commun
-                                possible_pair = mutual_val.copy()
-                                for c in mutual_peers:
-                                    possible_pair = possible_pair - set(values[c])
-                                if not possible_pair==None:
-                                    if len(possible_pair)==2 : # il y a une hidden pair
-                                        eliminate_s = set(val_s) - possible_pair
-                                        eliminate_t = set(val_t) - possible_pair
-                                        if not all(eliminate(values, s, d2) for d2 in eliminate_s) or not all(eliminate(values, t, d2) for d2 in eliminate_t):
-                                            return False
-                                    if len(possible_pair)==3 : # il y a une hidden triplet
-                                            eliminate_s = set(val_s) - possible_pair
-                                            eliminate_t = set(val_t) - possible_pair
-                                            if not all(eliminate(values, s, d2) for d2 in eliminate_s) or not all(eliminate(values, t, d2) for d2 in eliminate_t):
-                                                return False
-                                    if len(possible_pair)==4 : # il y a une hidden quad
-                                            eliminate_s = set(val_s) - possible_pair
-                                            eliminate_t = set(val_t) - possible_pair
-                                            if not all(eliminate(values, s, d2) for d2 in eliminate_s) or not all(eliminate(values, t, d2) for d2 in eliminate_t):
-                                                return False
-                                    break
-    
+    if len(values[s]) == 2:
+        # result = heuristique_hidden_pairs(values, s)
+        result = heuristique_naked_pairs(values, s)
+        if result is False:
+            return False
 
-    #def heuristique_broken_NakedPair(values,s):
-    # premiere heuristique : naked pair
-    if len(values[s])==2:  
-            for t in peers[s]:
-                if values[s]==values[t]: # s et t ont les deux mm indices
-                    doublon = values[s] # valeurs a enleve des peers respectif 
-                    # there is a hidden pair find mutual peers and eliminate the two values
-                    for u in peers[s] & (peers[t]):
-                        if not all(eliminate(values, u, d2) for d2 in doublon):
-                            return False
-                    break # on a trouvé une naked pair : peut pas y en avoir deux                                        
-            
-    
     return values
 
 
+def heuristique_naked_pairs(values, s):
+    for t in peers[s]:
+        # If s and t do not have the same indices, continue
+        if values[s] != values[t]:
+            continue
+
+        doublon = values[s]  # Values to remove from each peer
+
+        # Find mutual peers and eliminate the two values
+        for u in peers[s] & (peers[t]):
+            if not all(eliminate(values, u, d2) for d2 in doublon):
+                return False
+
+        # We found a naked pair and there cannot be two
+        break
+
+
+def heuristique_hidden_pairs(values, s):
+    for t in peers[s]:
+        if len(values[t]) < 2:
+            continue
+
+        val_s = values[s]
+        val_t = values[t]
+        mutual_val = set(val_s) & set(val_t)  # chiffres dans les deux cases
+
+        if len(mutual_val) < 2:
+            continue
+
+        mutual_peers = peers[s].intersection(peers[t])  # peers commun
+        for c in mutual_peers:
+            mutual_val = mutual_val - set(values[c])
+        if mutual_val is None:
+            continue
+
+        if len(mutual_val) == 2:  # il y a une hidden pair
+            eliminate_s = set(val_s) - mutual_val
+            eliminate_t = set(val_t) - mutual_val
+            if not all(eliminate(values, s, d2) for d2 in eliminate_s) or not all(
+                eliminate(values, t, d2) for d2 in eliminate_t
+            ):
+                return False
+        break
+
+
 ################ Display as 2-D grid ################
-
-
 def display(values):
     "Display these values as a 2-D grid."
     width = 1 + max(len(values[s]) for s in squares)
@@ -190,8 +192,6 @@ def display(values):
 
 
 ################ Search ################
-
-
 def solve(grid):
     return search(parse_grid(grid))
 
@@ -202,23 +202,19 @@ def search(values):
         return False  ## Failed earlier
     if all(len(values[s]) == 1 for s in squares):
         return values  ## Solved!
-    
 
     ## Chose the unfilled square s with the fewest possibilities
     n, s = min((len(values[s]), s) for s in squares if len(values[s]) > 1)
 
-
-    ## question 2 de TP
-    #n, s = random.choice(
+    ## Question 2 de TP
+    # n, s = random.choice(
     #    list(((len(values[s]), s) for s in squares if len(values[s]) > 1))
-    #)  # choisir case et chiffre au hasard
+    # )  # choisir case et chiffre au hasard
 
     return some(search(assign(values.copy(), s, d)) for d in values[s])
 
 
 ################ Utilities ################
-
-
 def some(seq):
     "Return some element of seq that is true."
     for e in seq:
@@ -240,7 +236,6 @@ def shuffled(seq):
 
 
 ################ System test ################
-
 import random
 import time
 
