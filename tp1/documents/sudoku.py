@@ -1,222 +1,394 @@
-## Solve Every Sudoku Puzzle
-
-## See http://norvig.com/sudoku.html
-
-## Throughout this program we have:
-##   r is a row,    e.g. 'A'
-##   c is a column, e.g. '3'
-##   s is a square, e.g. 'A3'
-##   d is a digit,  e.g. '9'
-##   u is a unit,   e.g. ['A1','B1','C1','D1','E1','F1','G1','H1','I1']
-##   grid is a grid,e.g. 81 non-blank chars, e.g. starting with '.18...7...
-##   values is a dict of possible values, e.g. {'A1':'12349', 'A2':'8', ...}
+import random
+import time
 
 
-def cross(A, B):
-    "Cross product of elements in A and elements in B."
-    return [a + b for a in A for b in B]
+# Solve Every Sudoku Puzzle
+# See http://norvig.com/sudoku.html
+
+# References used:
+# http://www.scanraid.com/BasicStrategies.htm
+# http://www.sudokudragon.com/sudokustrategy.htm
+# http://www.krazydad.com/blog/2005/09/29/an-index-of-sudoku-strategies/
+# http://www2.warwick.ac.uk/fac/sci/moac/currentstudents/peter_cock/python/sudoku/
+
+# Throughout this program we have:
+#   r is a row,    e.g. 'A'
+#   c is a column, e.g. '3'
+#   s is a square, e.g. 'A3'
+#   d is a digit,  e.g. '9'
+#   u is a unit,   e.g. ['A1','B1','C1','D1','E1','F1','G1','H1','I1']
+#   grid is a grid,e.g. 81 non-blank chars, e.g. starting with '.18...7...
+#   values is a dict of possible values, e.g. {'A1':'12349', 'A2':'8', ...}
+
+
+####################
+# Problem Data
+####################
+def cross(list_a, list_b):
+    """Cross product of elements in list_a and elements in list_b."""
+    return [a + b for a in list_a for b in list_b]
 
 
 digits = "123456789"
 rows = "ABCDEFGHI"
 cols = digits
 squares = cross(rows, cols)
-unitlist = (
-    [cross(rows, c) for c in cols]
-    + [cross(r, cols) for r in rows]
-    + [cross(rs, cs) for rs in ("ABC", "DEF", "GHI") for cs in ("123", "456", "789")]
+unit_list = (
+        [cross(rows, col) for col in cols]
+        + [cross(row, cols) for row in rows]
+        + [cross(rs, cs) for rs in ("ABC", "DEF", "GHI") for cs in ("123", "456", "789")]
 )
-units = dict((s, [u for u in unitlist if s in u]) for s in squares)
-peers = dict((s, set(sum(units[s], [])) - set([s])) for s in squares)
+units = dict((square, [unit for unit in unit_list if square in unit]) for square in squares)
+peers = dict((square, set(sum(units[square], [])) - {square}) for square in squares)
 
-################ Unit Tests ################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
 
-
-def test():
-    "A set of tests that must pass."
-    assert len(squares) == 81
-    assert len(unitlist) == 27
-    assert all(len(units[s]) == 3 for s in squares)
-    assert all(len(peers[s]) == 20 for s in squares)
-    assert units["C2"] == [
-        ["A2", "B2", "C2", "D2", "E2", "F2", "G2", "H2", "I2"],
-        ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9"],
-        ["A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"],
-    ]
-    assert peers["C2"] == set(
-        [
-            "A2",
-            "B2",
-            "D2",
-            "E2",
-            "F2",
-            "G2",
-            "H2",
-            "I2",
-            "C1",
-            "C3",
-            "C4",
-            "C5",
-            "C6",
-            "C7",
-            "C8",
-            "C9",
-            "A1",
-            "A3",
-            "B1",
-            "B3",
-        ]
-    )
-    print("All tests pass.")
+####################
+# Custom utils
+####################
+# Let's take advantage of the cross function to generate the rows, cols.
+# This will allow us to easily iterate through the rows and cols.
+square_columns = [cross(rows, col) for col in cols]
+square_rows = [cross(row, cols) for row in rows]
 
 
-################ Parse a Grid ################
+def get_box_neighbours(square):
+    neighbours = set(units[square][2])
+    neighbours.discard(square)
+    return neighbours
 
 
-def parse_grid(grid):
-    """Convert grid to a dict of possible values, {square: digits}, or
-    return False if a contradiction is detected."""
-    ## To start, every square can be any digit; then assign values from the grid.
-    values = dict((s, digits) for s in squares)
-    for s, d in grid_values(grid).items():
-        if d in digits and not assign(values, s, d):
-            return False  ## (Fail if we can't assign d to square s.)
-    return values
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
 
-
-def grid_values(grid):
-    "Convert grid into a dict of {square: char} with '0' or '.' for empties."
-    chars = [c for c in grid if c in digits or c in "0."]
-    assert len(chars) == 81
-    return dict(zip(squares, chars))
-
-
-################ Constraint Propagation ################
-def assign(values, s, d):
-    """Eliminate all the other values (except d) from values[s] and propagate.
+####################
+# Constraint Propagation DFS
+####################
+def assign_depth_first_search(values, square, digit):
+    """Eliminate all the other values (except digit) from values[square] and propagate.
     Return values, except return False if a contradiction is detected."""
-    other_values = values[s].replace(d, "")
-    if all(eliminate(values, s, d2) for d2 in other_values):
+    other_values = values[square].replace(digit, "")
+    if all(eliminate_depth_first_search(values, square, digit_2) for digit_2 in other_values):
         return values
     else:
         return False
 
 
-def eliminate(values, s, d):
-    """Eliminate d from values[s]; propagate when values or places <= 2.
+def eliminate_depth_first_search(values, square, digit):
+    """Eliminate digit from values[square]; propagate when values or places <= 2.
     Return values, except return False if a contradiction is detected."""
-    if d not in values[s]:
-        return values  ## Already eliminated
-    values[s] = values[s].replace(d, "")
+    if digit not in values[square]:
+        return values  # Already eliminated
+    values[square] = values[square].replace(digit, "")
 
-    ## (1) If a square s is reduced to one value d2, then eliminate d2 from the peers.
-    if len(values[s]) == 0:
-        return False  ## Contradiction: removed last value
-    elif len(values[s]) == 1:
-        d2 = values[s]
-        if not all(eliminate(values, s2, d2) for s2 in peers[s]):
+    # (1) If a square is reduced to one value digit_2, then eliminate digit_2 from the peers.
+    if len(values[square]) == 0:
+        return False  # Contradiction: removed last value
+    elif len(values[square]) == 1:
+        digit_2 = values[square]
+        if not all(eliminate_depth_first_search(values, square_2, digit_2) for square_2 in peers[square]):
             return False
-    ## (2) If a unit u is reduced to only one place for a value d, then put it there.
-    for u in units[s]:
-        dplaces = [s for s in u if d in values[s]]
-        if len(dplaces) == 0:
-            return False  ## Contradiction: no place for this value
-        elif len(dplaces) == 1:
-            # d can only be in one place in unit; assign it there
-            if not assign(values, dplaces[0], d):
+    # (2) If a unit is reduced to only one place for a value digit, then put it there.
+    for unit in units[square]:
+        digit_places = [square for square in unit if digit in values[square]]
+        if len(digit_places) == 0:
+            return False  # Contradiction: no place for this value
+        elif len(digit_places) == 1:
+            # digit can only be in one place in unit; assign it there
+            if not assign_depth_first_search(values, digit_places[0], digit):
                 return False
 
-    if len(values[s]) == 2:
-        # result = heuristique_hidden_pairs(values, s)
-        result = heuristique_naked_pairs(values, s)
+    ####################
+    # Question 3 de TP
+    ####################
+    # TODO: Compare in terms of performance
+    if len(values[square]) == 2:
+        result = heuristic_hidden_pairs(values, square)
+        # result = heuristic_naked_pairs(values, square)
         if result is False:
             return False
 
     return values
 
 
-def heuristique_naked_pairs(values, s):
-    for t in peers[s]:
-        # If s and t do not have the same indices, continue
-        if values[s] != values[t]:
+####################
+# Depth First Search
+####################
+def solve_depth_first_search(grid):
+    return depth_first_search(parse_grid(grid))
+
+
+def depth_first_search(values):
+    # Using depth-first search and propagation, try all possible values.
+    if values is False:
+        return False  # Failed earlier
+    if all(len(values[square]) == 1 for square in squares):
+        return values  # Solved!
+
+    # Chose the unfilled square with the fewest possibilities
+    length, square = min((len(values[square]), square) for square in squares if len(values[square]) > 1)
+
+    ####################
+    # Question 2 de TP
+    ####################
+    # TODO: Compare in terms of performance
+    # n, square = random.choice(
+    #    list(((len(values[square]), square) for square in squares if len(values[square]) > 1))
+    # )  # choisir case et chiffre au hasard
+
+    return some(depth_first_search(assign_depth_first_search(values.copy(), square, digit)) for digit in values[square])
+
+
+def heuristic_naked_pairs(values, square):
+    for peer in peers[square]:
+        # If square and peer do not have the same indices, continue
+        duplicate = values[square]  # Values to remove from each peer
+        if duplicate != values[peer]:
             continue
 
-        doublon = values[s]  # Values to remove from each peer
-
         # Find mutual peers and eliminate the two values
-        for u in peers[s] & (peers[t]):
-            if not all(eliminate(values, u, d2) for d2 in doublon):
+        for unit in peers[square] & (peers[peer]):
+            if not all(eliminate_depth_first_search(values, unit, digit) for digit in duplicate):
                 return False
 
         # We found a naked pair and there cannot be two
         break
 
 
-def heuristique_hidden_pairs(values, s):
-    for t in peers[s]:
-        if len(values[t]) < 2:
+def heuristic_hidden_pairs(values, square):
+    for peer in peers[square]:
+        if len(values[peer]) < 2:
             continue
 
-        val_s = values[s]
-        val_t = values[t]
-        mutual_val = set(val_s) & set(val_t)  # chiffres dans les deux cases
+        val_square = values[square]
+        val_peer = values[peer]
+
+        # Get digits that are in both squares
+        mutual_val = set(val_square) & set(val_peer)
 
         if len(mutual_val) < 2:
             continue
 
-        mutual_peers = peers[s].intersection(peers[t])  # peers commun
-        for c in mutual_peers:
-            mutual_val = mutual_val - set(values[c])
+        # Get the common peers
+        mutual_peers = peers[square].intersection(peers[peer])
+        for mutual_peer in mutual_peers:
+            mutual_val = mutual_val - set(values[mutual_peer])
         if mutual_val is None:
             continue
 
-        if len(mutual_val) == 2:  # il y a une hidden pair
-            eliminate_s = set(val_s) - mutual_val
-            eliminate_t = set(val_t) - mutual_val
-            if not all(eliminate(values, s, d2) for d2 in eliminate_s) or not all(
-                eliminate(values, t, d2) for d2 in eliminate_t
+        # A hidden pair was found
+        if len(mutual_val) == 2:
+            eliminate_square = set(val_square) - mutual_val
+            eliminate_peer = set(val_peer) - mutual_val
+            if not all(eliminate_depth_first_search(values, square, digit) for digit in eliminate_square) or not all(
+                    eliminate_depth_first_search(values, peer, digit) for digit in eliminate_peer
             ):
                 return False
         break
 
 
-################ Display as 2-D grid ################
-def display(values):
-    "Display these values as a 2-D grid."
-    width = 1 + max(len(values[s]) for s in squares)
-    line = "+".join(["-" * (width * 3)] * 3)
-    for r in rows:
-        print("".join(values[r + c].center(width) + ("|" if c in "36" else "")) for c in cols)
-        if r in "CF":
-            print(line)
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+
+####################
+# Constraint Propagation Hill Climbing
+####################
+def assign_hill_climbing(values, square, digit):
+    """Eliminate all the other values (except digit) from values[square] and propagate.
+    Return values, except return False if a contradiction is detected."""
+    other_values = values[square].replace(digit, "")
+    if all(eliminate_hill_climbing(values, square, digit_2) for digit_2 in other_values):
+        return values
+    else:
+        return False
 
 
-################ Search ################
-def solve(grid):
-    return search(parse_grid(grid))
+def eliminate_hill_climbing(values, square, digit):
+    """Variant of eliminate(). This variant only checks the 3x3 unit instead
+    of also checking rows and cols. Eliminate digit from values[square]; propagate
+    when values or places <= 2. Return values, except return False if a
+    contradiction is detected."""
+    if digit not in values[square]:
+        return values  # Already eliminated
+    values[square] = values[square].replace(digit, "")
+
+    # (1) If a square is reduced to one value digit_2, then eliminate digit_2 from the peers.
+    if len(values[square]) == 0:
+        return False  # Contradiction: removed last value
+    elif len(values[square]) == 1:
+        digit_2 = values[square]
+        if not all(eliminate_hill_climbing(values, square_2, digit_2) for square_2 in get_box_neighbours(square)):
+            return False
+    # (2) If a unit is reduced to only one place for a value digit, then put it there.
+    # Now we only check [units[square][2]] because we only care about squares in the same 3x3 unit
+    # The added surrounding brackets are to keep the same code logic as eliminate()
+    for unit in [units[square][2]]:
+        digit_places = [square for square in unit if digit in values[square]]
+        if len(digit_places) == 0:
+            return False  # Contradiction: no place for this value
+        elif len(digit_places) == 1:
+            # digit can only be in one place in unit; assign it there
+            if not assign_hill_climbing(values, digit_places[0], digit):
+                return False
+    return values
 
 
-def search(values):
-    "Using depth-first search and propagation, try all possible values."
-    if values is False:
-        return False  ## Failed earlier
-    if all(len(values[s]) == 1 for s in squares):
-        return values  ## Solved!
+####################
+# Hill Climbing
+####################
 
-    ## Chose the unfilled square s with the fewest possibilities
-    n, s = min((len(values[s]), s) for s in squares if len(values[s]) > 1)
-
-    ## Question 2 de TP
-    # n, s = random.choice(
-    #    list(((len(values[s]), s) for s in squares if len(values[s]) > 1))
-    # )  # choisir case et chiffre au hasard
-
-    return some(search(assign(values.copy(), s, d)) for d in values[s])
+def solve_hill_climbing(grid):
+    values = parse_grid(grid)
+    values = random_3x3_unit_fill(values)
+    return hill_climbing(values)
 
 
-################ Utilities ################
+def random_3x3_unit_fill(values):
+    """Fill each 3x3 unit randomly, without considering
+    conflicts outside the 3x3 unit"""
+
+    values_copy = values.copy()
+    # Try to fill until no square is left empty
+    while not all(len(values_copy[square]) <= 1 for square in squares):
+        # Use the same strategy as dfs() to select the square:
+        # Chose the unfilled square with the fewest possibilities
+        length, square = min((len(values_copy[square]), square) for square in squares if len(values_copy[square]) > 1)
+        # Chose an available digit and assign it
+        digit = random.choice(values_copy[square])
+        assign_hill_climbing(values_copy, square, digit)
+
+    return values_copy
+
+
+def get_score(values):
+    # The trick with len(set(counter)) - 9 was inspired by the following StackOverflow post:
+    # https://stackoverflow.com/a/46959086
+    #
+    # It is a lot faster than the technique initially used (see comments below) because it
+    # avoids iterating unnecessarily.
+    #
+    # Essentially, we want to count the number of conflicts in each row and col. The maximum number of conflicts
+    # is 9, so we subtract 9 from the length of the set of values in each row and col to get the number of conflicts.
+    # If all values are unique, the length of the set will be 9, so 9 - 9 = 0 conflicts. If there are any duplicates,
+    # the length of the set will be less than 9, so 9 - (less than 9) = (more than 0) conflicts.
+
+    total_conflicts = 0
+
+    # Count the number of conflicts in each row/col
+    for row in square_rows:
+        # counter = {}
+        counter = []
+        for square in row:
+            value = values[square]
+            # counter[value] = counter.get(value, 0) + 1
+            counter.append(value)
+        # total_conflicts += sum([count - 1 for item, count in counter.items() if count > 1])
+        total_conflicts += len(set(counter)) - 9
+
+    for col in square_columns:
+        # counter = {}
+        counter = []
+        for square in col:
+            value = values[square]
+            # counter[value] = counter.get(value, 0) + 1
+            counter.append(value)
+        # total_conflicts += sum([count - 1 for item, count in counter.items() if count > 1])
+        total_conflicts += len(set(counter)) - 9
+
+    # We want to minimize the number of conflicts
+    # The score needs to increase when the number of conflicts decreases
+    return total_conflicts
+
+
+def get_potential_swaps(values):
+    swaps = []
+    swapped = set()
+    for square in squares:
+        # Copy the values to avoid modifying the original grid
+        values_copy = values.copy()
+
+        # Get the box containing the square, but exclude squares that have already been swapped
+        box = set(get_box_neighbours(square)).difference(swapped)
+        for peer in box:
+            # Swap values
+            values_copy[square], values_copy[peer] = values_copy[peer], values_copy[square]
+            # Save the resulting grid
+            swaps.append(values_copy)
+
+        # Add square to swapped set as we have already tried all swaps
+        swapped.add(square)
+    return swaps
+
+
+def hill_climbing(values):
+    # Initialize the current state
+    current_values = values
+
+    # Loop until we reach a local maximum
+    while True:
+        # Initialize the potential best score and values
+        potential_values = current_values
+        potential_best_score = get_score(current_values)
+        score_improved = False
+
+        # Get the potential swaps
+        potential_swaps = get_potential_swaps(current_values)
+
+        # Compare the score of the potential swaps
+        for swap in potential_swaps:
+            # Get scode of the swap
+            swap_score = get_score(swap)
+            # Check if the swap is better than the current state
+            if swap_score > potential_best_score:
+                potential_values = swap
+                potential_best_score = swap_score
+                score_improved = True
+
+        # If the potential best score is the same as the current score, we have reached a local maximum
+        if not score_improved:
+            return current_values
+
+        # If we have not, we update the current state
+        current_values = potential_values
+
+
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+
+#######################################
+# OTHER STUFF
+#######################################
+
+
+####################
+# Unit Tests
+####################
+def test():
+    """A set of tests that must pass."""
+    assert len(squares) == 81
+    assert len(unit_list) == 27
+    assert all(len(units[square]) == 3 for square in squares)
+    assert all(len(peers[square]) == 20 for square in squares)
+    assert units["C2"] == [
+        ["A2", "B2", "C2", "D2", "E2", "F2", "G2", "H2", "I2"],
+        ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9"],
+        ["A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3"],
+    ]
+    assert peers["C2"] == {"A2", "B2", "D2", "E2", "F2", "G2", "H2", "I2", "C1", "C3", "C4", "C5", "C6", "C7", "C8",
+                           "C9", "A1", "A3", "B1", "B3"}
+    print("All tests pass.")
+
+
+####################
+# Utilities
+####################
 def some(seq):
-    "Return some element of seq that is true."
+    """Return some element of seq that is true."""
     for e in seq:
         if e:
             return e
@@ -224,68 +396,109 @@ def some(seq):
 
 
 def from_file(filename, sep="\n"):
-    "Parse a file into a list of strings, separated by sep."
+    """Parse a file into a list of strings, separated by sep."""
     return open(filename).read().strip().split(sep)
 
 
 def shuffled(seq):
-    "Return a randomly shuffled copy of the input sequence."
+    """Return a randomly shuffled copy of the input sequence."""
     seq = list(seq)
     random.shuffle(seq)
     return seq
 
 
-################ System test ################
-import random
-import time
+####################
+# Display as 2-D grid
+####################
+def display(values):
+    """Display these values as a 2-D grid."""
+    width = 1 + max(len(values[square]) for square in squares)
+    line = "+".join(["-" * (width * 3)] * 3)
+    for row in rows:
+        print("".join(values[row + col].center(width) + ("|" if col in "36" else "") for col in cols))
+        if row in "CF":
+            print(line)
+    print()
 
 
-def solve_all(grids, name="", showif=0.0):
+####################
+# Parse a Grid
+####################
+def parse_grid(grid):
+    """Convert grid to a dict of possible values, {square: digits}, or
+    return False if a contradiction is detected."""
+    # To start, every square can be any digit; then assign values from the grid.
+    values = dict((square, digits) for square in squares)
+    for square, digit in grid_values(grid).items():
+        if digit in digits and not assign_depth_first_search(values, square, digit):
+            return False  # (Fail if we can't assign digit to square.)
+    return values
+
+
+def grid_values(grid):
+    """Convert grid into a dict of {square: char} with '0' or '.' for empties."""
+    chars = [column for column in grid if column in digits or column in "0."]
+    assert len(chars) == 81
+    return dict(zip(squares, chars))
+
+
+####################
+# System test
+####################
+def solved(values):
+    """A puzzle is solved if each unit is a permutation of the digits 1 to 9."""
+
+    def unitsolved(unit):
+        return set(values[square] for square in unit) == set(digits)
+
+    return values is not False and all(unitsolved(unit) for unit in unit_list)
+
+
+def solve_all(grids, name="", showif=0.0, algo="dfs"):
     """Attempt to solve a sequence of grids. Report results.
     When showif is a number of seconds, display puzzles that take longer.
     When showif is None, don't display any puzzles."""
 
     def time_solve(grid):
-        start = time.time_ns()
-        values = solve(grid)
-        t = time.time_ns() - start
-        ## Display puzzles that take long enough
-        if showif is not None and t > showif:
+        start_time = time.time_ns()
+
+        if algo == "dfs":
+            values = solve_depth_first_search(grid)
+        elif algo == "hc":
+            values = solve_hill_climbing(grid)
+        else:
+            values = solve_depth_first_search(grid)
+
+        end_time = time.time_ns() - start_time
+
+        # Display puzzles that take long enough
+        if showif is not None and end_time > showif:
             display(grid_values(grid))
             if values:
                 display(values)
-            print("(%.2f nanoseconds)\n" % t)
-        return (t, solved(values))
+            print("(%.2f nanoseconds)\n" % end_time)
+        return end_time, solved(values)
 
     times, results = zip(*[time_solve(grid) for grid in grids])
-    N = len(grids)
-    if N > 1:
+    n = len(grids)
+    if n >= 1:
         print(
-            f"Solved {sum(results)}/{N} {name} puzzles:\n - {N / sum(times) * 1e9:.2f} Hz\n - avg {(sum(times) / N / 1e6):.2f} ms | {(sum(times) / N):,.2f} ns\n - max {max(times)/ 1e6:.2f} ms | {max(times):,} ns). "
+            f"Solved {sum(results)}/{n} {name} puzzles:\n - {n / sum(times) * 1e9:.2f} Hz\n - avg {(sum(times) / n / 1e6):.2f} ms | {(sum(times) / n):,.2f} ns\n - max {max(times) / 1e6:.2f} ms | {max(times):,} ns). "
         )
 
 
-def solved(values):
-    "A puzzle is solved if each unit is a permutation of the digits 1 to 9."
-
-    def unitsolved(unit):
-        return set(values[s] for s in unit) == set(digits)
-
-    return values is not False and all(unitsolved(unit) for unit in unitlist)
-
-
-def random_puzzle(N=17):
-    """Make a random puzzle with N or more assignments. Restart on contradictions.
+def random_puzzle(n=17):
+    """Make a random puzzle with n or more assignments. Restart on contradictions.
     Note the resulting puzzle is not guaranteed to be solvable, but empirically
     about 99.8% of them are solvable. Some have multiple solutions."""
-    values = dict((s, digits) for s in squares)
-    for s in shuffled(squares):
-        if not assign(values, s, random.choice(values[s])):
+    values = dict((square, digits) for square in squares)
+    for square in shuffled(squares):
+        if not assign_depth_first_search(values, square, random.choice(values[square])):
             break
-        ds = [values[s] for s in squares if len(values[s]) == 1]
-        if len(ds) >= N and len(set(ds)) >= 8:
-            return "".join(values[s] if len(values[s]) == 1 else "." for s in squares)
-    return random_puzzle(N)  ## Give up and make a new puzzle
+        ds = [values[square] for square in squares if len(values[square]) == 1]
+        if len(ds) >= n and len(set(ds)) >= 8:
+            return "".join(values[square] if len(values[square]) == 1 else "." for square in squares)
+    return random_puzzle(n)  # Give up and make a new puzzle
 
 
 grid1 = "003020600900305001001806400008102900700000008006708200002609500800203009005010300"
@@ -294,17 +507,11 @@ hard1 = ".....6....59.....82....8....45........3........6..3.54...325..6........
 
 if __name__ == "__main__":
     test()
-    solve_all(from_file("top_95.txt"), "95sudoku", None)
-    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None)
-    solve_all(from_file("sudoku_100.txt"), "sudoku_100", None)
-    # solve_all(from_file("easy50.txt", '========'), "easy", None)
-    # solve_all(from_file("easy50.txt", '========'), "easy", None)
-    # solve_all(from_file("top95.txt"), "hard", None)
-    # solve_all(from_file("hardest.txt"), "hardest", None)
-    solve_all([random_puzzle() for _ in range(99)], "random", None)
+    # Algos: {hc: "Hill Climbing", dfs: "Depth First Search"}
+    algo = "hc"
 
-## References used:
-## http://www.scanraid.com/BasicStrategies.htm
-## http://www.sudokudragon.com/sudokustrategy.htm
-## http://www.krazydad.com/blog/2005/09/29/an-index-of-sudoku-strategies/
-## http://www2.warwick.ac.uk/fac/sci/moac/currentstudents/peter_cock/python/sudoku/
+    # Hill Climbing
+    solve_all(from_file("sudoku_100.txt"), "sudoku_100", None, algo)
+    solve_all(from_file("top_95.txt"), "95sudoku", None, algo)
+    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo)
+    solve_all([random_puzzle() for _ in range(99)], "random", None, algo)
