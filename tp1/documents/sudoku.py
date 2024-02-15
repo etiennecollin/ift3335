@@ -118,7 +118,7 @@ def eliminate_depth_first_search(values, square, digit):
 # Depth First Search
 ####################
 def solve_depth_first_search(grid):
-    return depth_first_search(parse_grid(grid))
+    return depth_first_search(parse_grid_depth_first_search(grid))
 
 
 def depth_first_search(values):
@@ -242,7 +242,8 @@ def eliminate_hill_climbing(values, square, digit):
 ####################
 
 def solve_hill_climbing(grid):
-    values = parse_grid(grid)
+    # TODO Check if we can use the same parse_grid function as in DFS
+    values = parse_grid_hill_climbing(grid)
     values = random_3x3_unit_fill(values)
     return hill_climbing(values)
 
@@ -424,7 +425,18 @@ def display(values):
 ####################
 # Parse a Grid
 ####################
-def parse_grid(grid):
+def parse_grid_hill_climbing(grid):
+    """Convert grid to a dict of possible values, {square: digits}, or
+    return False if a contradiction is detected."""
+    # To start, every square can be any digit; then assign values from the grid.
+    values = dict((square, digits) for square in squares)
+    for square, digit in grid_values(grid).items():
+        if digit in digits and not assign_hill_climbing(values, square, digit):
+            return False  # (Fail if we can't assign digit to square.)
+    return values
+
+
+def parse_grid_depth_first_search(grid):
     """Convert grid to a dict of possible values, {square: digits}, or
     return False if a contradiction is detected."""
     # To start, every square can be any digit; then assign values from the grid.
