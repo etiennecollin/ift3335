@@ -1,3 +1,4 @@
+import csv
 import math
 import random
 import time
@@ -41,6 +42,9 @@ unit_list = (
 )
 units = dict((square, [unit for unit in unit_list if square in unit]) for square in squares)
 peers = dict((square, set(sum(units[square], [])) - {square}) for square in squares)
+
+global improvement_list
+improvement_list = []
 
 ########################################################################################################################
 ########################################################################################################################
@@ -347,6 +351,7 @@ def get_potential_swaps(values):
 def hill_climbing(values):
     # Initialize the current state
     current_values = values
+    global improvement_list
 
     # Loop until we reach a local maximum
     while True:
@@ -354,6 +359,9 @@ def hill_climbing(values):
         potential_values = current_values
         potential_best_score = get_score(current_values)
         score_improved = False
+
+        # Store current score for analysis
+        improvement_list.append(potential_best_score)
 
         # Get the potential swaps
         potential_swaps = get_potential_swaps(current_values)
@@ -385,10 +393,10 @@ def hill_climbing(values):
 # Simulated Annealing
 ####################
 
-def solve_simulated_annealing(grid, use_random_parsing=False, schedule_constant=0.99, max_steps=10000):
+def solve_simulated_annealing(grid, use_random_parsing=False, heuristic=None, schedule_constant=0.99, max_steps=10000):
     # TODO Check if we can use the same parse_grid function as in DFS
     if not use_random_parsing:
-        values = parse_grid_depth_first_search(grid)
+        values = parse_grid_depth_first_search(grid, heuristic)
     else:
         values = parse_grid_hill_climbing(grid)
     values = random_3x3_unit_fill(values)
@@ -412,20 +420,27 @@ def get_random_swap(values):
 def simulated_annealing(values, schedule_constant=0.99, max_steps=10000):
     # Initialize the current state
     current_values = values
+    global improvement_list
     t = 1
     for _ in range(max_steps):
         # Decrease the temperature
         t = schedule_constant * t
 
+        # Get the current score
+        current_score = get_score(current_values)
+
+        # Store current score for analysis
+        improvement_list.append(current_score)
+
         # If the temperature is very low or if the board is solved, then
         # we have reached a local maximum
-        if t == 0 or solved(current_values):
+        if t < 10 ** -10 or solved(current_values):
             return current_values
 
         # Get the potential swap
         potential_values = get_random_swap(current_values)
         # Calculate the score
-        delta_e = get_score(potential_values) - get_score(current_values)
+        delta_e = get_score(potential_values) - current_score
 
         # If the potential swap is better than the current state, we update the current state
         if delta_e > 0:
@@ -574,7 +589,7 @@ def solve_all(grids, name="", showif=0.0, algo="dfs", use_random_parsing=False, 
         elif algo == "hc":
             values = solve_hill_climbing(grid, use_random_parsing, heuristic)
         elif algo == "sa":
-            values = solve_simulated_annealing(grid, use_random_parsing, schedule_constant, max_steps)
+            values = solve_simulated_annealing(grid, use_random_parsing, heuristic, schedule_constant, max_steps)
         else:
             values = solve_depth_first_search(grid, use_random_parsing, heuristic)
 
@@ -592,7 +607,7 @@ def solve_all(grids, name="", showif=0.0, algo="dfs", use_random_parsing=False, 
     n = len(grids)
     if n >= 1:
         print(
-            f"Solved {sum(results)}/{n} {name} puzzles:\n - {n / sum(times) * 1e9:.2f} Hz\n - avg {(sum(times) / n / 1e6):.2f} ms | {(sum(times) / n):,.2f} ns\n - max {max(times) / 1e6:.2f} ms | {max(times):,} ns. "
+            f"Solved {sum(results)}/{n} {name} puzzles:\n - {n / sum(times) * 1e9:.2f} Hz\n - avg {(sum(times) / n / 1e6):.2f} ms | {(sum(times) / n):,.2f} ns\n - max {max(times) / 1e6:.2f} ms | {max(times):,} ns.\n"
         )
 
 
@@ -614,13 +629,20 @@ grid1 = "00302060090030500100180640000810290070000000800670820000260950080020300
 grid2 = "4.....8.5.3..........7......2.....6.....8.4......1.......6.3.7.5..2.....1.4......"
 hard1 = ".....6....59.....82....8....45........3........6..3.54...325..6.................."
 
-if __name__ == "__main__":
-    test()
-    # Algos: {hc: "Hill Climbing", dfs: "Depth First Search"}
 
-    # For simulated Annealing
-    schedule_constant = 0.99
-    max_steps = 10000
+def write_csv(filename, header, is_solved, data):
+    # Open the CSV file in append mode
+    with open(filename, 'a', newline='') as csvfile:
+        # Create a CSV writer object
+        csv_writer = csv.writer(csvfile)
+
+        # Write the data as a row with the header
+        csv_writer.writerow([header, is_solved] + data)
+
+
+def test_solve(sudoku_filename, schedule_constant=0.99, max_steps=10000):
+    # Load the sudoku file
+    sudoku_file = from_file(sudoku_filename)
 
     print("====================================================")
     print("Depth First Search - Non-random parsing")
@@ -630,35 +652,25 @@ if __name__ == "__main__":
 
     print("== No Heuristic ==")
     heuristic = None
-    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
-              max_steps)
-    print()
+    solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic, schedule_constant, max_steps)
 
     print("== Naked Pairs ==")
     heuristic = 0
-    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
-              max_steps)
-    print()
+    solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic, schedule_constant, max_steps)
 
     print("== Hidden Pairs ==")
     heuristic = 1
-    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
-              max_steps)
-    print()
+    solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic, schedule_constant, max_steps)
 
     print("====================================================")
     print("Depth First Search - Random parsing")
     print("====================================================")
-    print(" TOO LONG TO RUN")
-    print()
-    # algo = "dfs"
-    # use_random_parsing = True
-    #
-    # print("== No Heuristic ==")
-    # heuristic = None
-    # solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
-    #           max_steps)
-    # print()
+    algo = "dfs"
+    use_random_parsing = True
+
+    print("== No Heuristic ==")
+    heuristic = None
+    solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic, schedule_constant, max_steps)
 
     print("====================================================")
     print("Hill Climbing - Non-random parsing")
@@ -668,21 +680,15 @@ if __name__ == "__main__":
 
     print("== No Heuristic ==")
     heuristic = None
-    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
-              max_steps)
-    print()
+    solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic, schedule_constant, max_steps)
 
     print("== Naked Pairs ==")
     heuristic = 0
-    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
-              max_steps)
-    print()
+    solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic, schedule_constant, max_steps)
 
     print("== Hidden Pairs ==")
     heuristic = 1
-    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
-              max_steps)
-    print()
+    solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic, schedule_constant, max_steps)
 
     print("====================================================")
     print("Hill Climbing - Random parsing")
@@ -692,50 +698,161 @@ if __name__ == "__main__":
 
     print("== No Heuristic ==")
     heuristic = None
-    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
-              max_steps)
-    print()
+    solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic, schedule_constant, max_steps)
 
     print("====================================================")
-    print("Simulated Annealing - Non-random parsing")
+    print(f"Simulated Annealing - Non-random parsing | Schedule Constant={schedule_constant}, Max Steps={max_steps}")
     print("====================================================")
     algo = "sa"
     use_random_parsing = False
 
     print("== No Heuristic ==")
     heuristic = None
-    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
-              max_steps)
-    print()
+    solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic, schedule_constant, max_steps)
 
     print("== Naked Pairs ==")
     heuristic = 0
-    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
-              max_steps)
-    print()
+    solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic, schedule_constant, max_steps)
 
     print("== Hidden Pairs ==")
     heuristic = 1
-    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
-              max_steps)
-    print()
+    solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic, schedule_constant, max_steps)
 
     print("====================================================")
-    print("Simulated Annealing - Random parsing")
+    print(f"Simulated Annealing - Random parsing | Schedule Constant={schedule_constant}, Max Steps={max_steps}")
     print("====================================================")
     algo = "sa"
     use_random_parsing = True
 
     print("== No Heuristic ==")
     heuristic = None
-    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
-              max_steps)
-    print()
+    solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic, schedule_constant, max_steps)
 
 
-    # solve_all(from_file("sudoku_100.txt"), "sudoku_100", None, algo, use_random_parsing, heuristic, schedule_constant,
-    #           max_steps)
-    # solve_all(from_file("top_95.txt"), "95sudoku", None, algo, use_random_parsing, heuristic, schedule_constant,
-    #           max_steps)
+def analysis(analysis_output, analysis_grid, schedule_constant=0.99, max_steps=10000):
+    global improvement_list
+
+    # Algos: {hc: "Hill Climbing", dfs: "Depth First Search"}
+    print("====================================================")
+    print("Hill Climbing - Non-random parsing")
+    print("====================================================")
+    use_random_parsing = False
+
+    print("== No Heuristic ==")
+    heuristic = None
+    improvement_list = []
+    values = solve_hill_climbing(analysis_grid, use_random_parsing, heuristic)
+    is_solved = solved(values)
+    print(f"Solved: {is_solved}")
+    display(values)
+    header = "hc_nonRandomParsing_noHeuristic"
+    data = improvement_list
+    write_csv(analysis_output, header, is_solved, data)
+
+    print("== Naked Pairs ==")
+    heuristic = 0
+    improvement_list = []
+    values = solve_hill_climbing(analysis_grid, use_random_parsing, heuristic)
+    print(f"Solved: {solved(values)}")
+    display(values)
+    header = "hc_nonRandomParsing_nakedPairs"
+    data = improvement_list
+    is_solved = solved(values)
+    write_csv(analysis_output, header, is_solved, data)
+
+    print("== Hidden Pairs ==")
+    heuristic = 1
+    improvement_list = []
+    values = solve_hill_climbing(analysis_grid, use_random_parsing, heuristic)
+    is_solved = solved(values)
+    print(f"Solved: {is_solved}")
+    display(values)
+    header = "hc_nonRandomParsing_hiddenPairs"
+    data = improvement_list
+    write_csv(analysis_output, header, is_solved, data)
+
+    print("====================================================")
+    print("Hill Climbing - Random parsing")
+    print("====================================================")
+    use_random_parsing = True
+
+    print("== No Heuristic ==")
+    heuristic = None
+    improvement_list = []
+    values = solve_hill_climbing(analysis_grid, use_random_parsing, heuristic)
+    is_solved = solved(values)
+    print(f"Solved: {is_solved}")
+    display(values)
+    header = "hc_randomParsing_noHeuristic"
+    data = improvement_list
+    write_csv(analysis_output, header, is_solved, data)
+
+    print("====================================================")
+    print(f"Simulated Annealing - Non-random parsing | Schedule Constant={schedule_constant}, Max Steps={max_steps}")
+    print("====================================================")
+    use_random_parsing = False
+
+    print("== No Heuristic ==")
+    heuristic = None
+    improvement_list = []
+    values = solve_simulated_annealing(analysis_grid, use_random_parsing, heuristic, schedule_constant, max_steps)
+    is_solved = solved(values)
+    print(f"Solved: {is_solved}")
+    display(values)
+    header = f"sa_nonRandomParsing_noHeuristic_constant={schedule_constant}_maxSteps={max_steps}"
+    data = improvement_list
+    write_csv(analysis_output, header, is_solved, data)
+
+    print("== Naked Pairs ==")
+    heuristic = 0
+    improvement_list = []
+    values = solve_simulated_annealing(analysis_grid, use_random_parsing, heuristic, schedule_constant, max_steps)
+    print(f"Solved: {solved(values)}")
+    display(values)
+    header = f"sa_nonRandomParsing_nakedPairs_constant={schedule_constant}_maxSteps={max_steps}"
+    data = improvement_list
+    is_solved = solved(values)
+    write_csv(analysis_output, header, is_solved, data)
+
+    print("== Hidden Pairs ==")
+    heuristic = 1
+    improvement_list = []
+    values = solve_simulated_annealing(analysis_grid, use_random_parsing, heuristic, schedule_constant, max_steps)
+    is_solved = solved(values)
+    print(f"Solved: {is_solved}")
+    display(values)
+    header = f"sa_nonRandomParsing_hiddenPairs_constant={schedule_constant}_maxSteps={max_steps}"
+    data = improvement_list
+    write_csv(analysis_output, header, is_solved, data)
+
+    print("====================================================")
+    print(f"Simulated Annealing - Random parsing | Schedule Constant={schedule_constant}, Max Steps={max_steps}")
+    print("====================================================")
+    use_random_parsing = True
+
+    print("== No Heuristic ==")
+    heuristic = None
+    improvement_list = []
+    values = solve_simulated_annealing(analysis_grid, use_random_parsing, heuristic, schedule_constant, max_steps)
+    is_solved = solved(values)
+    print(f"Solved: {is_solved}")
+    display(values)
+    header = f"sa_randomParsing_noHeuristic_constant={schedule_constant}_maxSteps={max_steps}"
+    data = improvement_list
+    write_csv(analysis_output, header, is_solved, data)
+
+
+if __name__ == "__main__":
+    # Run tests
+    test()
+
+    # For simulated Annealing
+    schedule_constant = 0.999
+    max_steps = 10000
+
+    # Algos: {hc: "Hill Climbing", dfs: "Depth First Search"}
+    test_solve("sudoku_100.txt", schedule_constant, max_steps)
+    # analysis("analysis.csv", grid2, schedule_constant, max_steps)
+
     # solve_all([random_puzzle() for _ in range(99)], "random", None, algo, use_random_parsing, heuristic,
     #           schedule_constant, max_steps)
