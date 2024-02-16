@@ -617,10 +617,125 @@ hard1 = ".....6....59.....82....8....45........3........6..3.54...325..6........
 if __name__ == "__main__":
     test()
     # Algos: {hc: "Hill Climbing", dfs: "Depth First Search"}
-    algo = "hc"
 
-    # Hill Climbing
-    solve_all(from_file("sudoku_100.txt"), "sudoku_100", None, algo)
-    solve_all(from_file("top_95.txt"), "95sudoku", None, algo)
-    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo)
-    solve_all([random_puzzle() for _ in range(99)], "random", None, algo)
+    # For simulated Annealing
+    schedule_constant = 0.99
+    max_steps = 10000
+
+    print("====================================================")
+    print("Depth First Search - Non-random parsing")
+    print("====================================================")
+    algo = "dfs"
+    use_random_parsing = False
+
+    print("== No Heuristic ==")
+    heuristic = None
+    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
+              max_steps)
+    print()
+
+    print("== Naked Pairs ==")
+    heuristic = 0
+    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
+              max_steps)
+    print()
+
+    print("== Hidden Pairs ==")
+    heuristic = 1
+    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
+              max_steps)
+    print()
+
+    print("====================================================")
+    print("Depth First Search - Random parsing")
+    print("====================================================")
+    print(" TOO LONG TO RUN")
+    print()
+    # algo = "dfs"
+    # use_random_parsing = True
+    #
+    # print("== No Heuristic ==")
+    # heuristic = None
+    # solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
+    #           max_steps)
+    # print()
+
+    print("====================================================")
+    print("Hill Climbing - Non-random parsing")
+    print("====================================================")
+    algo = "hc"
+    use_random_parsing = False
+
+    print("== No Heuristic ==")
+    heuristic = None
+    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
+              max_steps)
+    print()
+
+    print("== Naked Pairs ==")
+    heuristic = 0
+    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
+              max_steps)
+    print()
+
+    print("== Hidden Pairs ==")
+    heuristic = 1
+    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
+              max_steps)
+    print()
+
+    print("====================================================")
+    print("Hill Climbing - Random parsing")
+    print("====================================================")
+    algo = "hc"
+    use_random_parsing = True
+
+    print("== No Heuristic ==")
+    heuristic = None
+    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
+              max_steps)
+    print()
+
+    print("====================================================")
+    print("Simulated Annealing - Non-random parsing")
+    print("====================================================")
+    algo = "sa"
+    use_random_parsing = False
+
+    print("== No Heuristic ==")
+    heuristic = None
+    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
+              max_steps)
+    print()
+
+    print("== Naked Pairs ==")
+    heuristic = 0
+    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
+              max_steps)
+    print()
+
+    print("== Hidden Pairs ==")
+    heuristic = 1
+    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
+              max_steps)
+    print()
+
+    print("====================================================")
+    print("Simulated Annealing - Random parsing")
+    print("====================================================")
+    algo = "sa"
+    use_random_parsing = True
+
+    print("== No Heuristic ==")
+    heuristic = None
+    solve_all(from_file("sudoku_1000.txt"), "sudoku_1000", None, algo, use_random_parsing, heuristic, schedule_constant,
+              max_steps)
+    print()
+
+
+    # solve_all(from_file("sudoku_100.txt"), "sudoku_100", None, algo, use_random_parsing, heuristic, schedule_constant,
+    #           max_steps)
+    # solve_all(from_file("top_95.txt"), "95sudoku", None, algo, use_random_parsing, heuristic, schedule_constant,
+    #           max_steps)
+    # solve_all([random_puzzle() for _ in range(99)], "random", None, algo, use_random_parsing, heuristic,
+    #           schedule_constant, max_steps)
