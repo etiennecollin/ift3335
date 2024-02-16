@@ -1,3 +1,4 @@
+import math
 import random
 import time
 
@@ -67,17 +68,17 @@ def get_box_neighbours(square):
 ####################
 # Constraint Propagation DFS
 ####################
-def assign_depth_first_search(values, square, digit):
+def assign_depth_first_search(values, square, digit, heuristic=None):
     """Eliminate all the other values (except digit) from values[square] and propagate.
     Return values, except return False if a contradiction is detected."""
     other_values = values[square].replace(digit, "")
-    if all(eliminate_depth_first_search(values, square, digit_2) for digit_2 in other_values):
+    if all(eliminate_depth_first_search(values, square, digit_2, heuristic) for digit_2 in other_values):
         return values
     else:
         return False
 
 
-def eliminate_depth_first_search(values, square, digit):
+def eliminate_depth_first_search(values, square, digit, heuristic=None):
     """Eliminate digit from values[square]; propagate when values or places <= 2.
     Return values, except return False if a contradiction is detected."""
     if digit not in values[square]:
@@ -105,11 +106,12 @@ def eliminate_depth_first_search(values, square, digit):
     # Question 3 de TP
     ####################
     # TODO: Compare in terms of performance
-    if len(values[square]) == 2:
-        result = heuristic_hidden_pairs(values, square)
-        # result = heuristic_naked_pairs(values, square)
-        if result is False:
-            return False
+    if heuristic is None:
+        return values
+    elif heuristic == 0 and len(values[square]) == 2:
+        values = heuristic_naked_pairs(values, square)
+    elif heuristic == 1 and len(values[square]) == 2:
+        values = heuristic_hidden_pairs(values, square)
 
     return values
 
@@ -117,11 +119,15 @@ def eliminate_depth_first_search(values, square, digit):
 ####################
 # Depth First Search
 ####################
-def solve_depth_first_search(grid):
-    return depth_first_search(parse_grid_depth_first_search(grid))
+def solve_depth_first_search(grid, use_random_parsing=False, heuristic=None):
+    if not use_random_parsing:
+        values = parse_grid_depth_first_search(grid, heuristic)
+    else:
+        values = parse_grid_hill_climbing(grid)
+    return depth_first_search(values, use_random_parsing, heuristic)
 
 
-def depth_first_search(values):
+def depth_first_search(values, use_random_parsing=False, heuristic=None):
     # Using depth-first search and propagation, try all possible values.
     if values is False:
         return False  # Failed earlier
@@ -139,32 +145,39 @@ def depth_first_search(values):
     #    list(((len(values[square]), square) for square in squares if len(values[square]) > 1))
     # )  # choisir case et chiffre au hasard
 
-    return some(depth_first_search(assign_depth_first_search(values.copy(), square, digit)) for digit in values[square])
+    return some(
+        depth_first_search(assign_depth_first_search(values.copy(), square, digit, heuristic), use_random_parsing,
+                           heuristic) for digit in values[square])
 
 
 def heuristic_naked_pairs(values, square):
+    values_copy = values.copy()
+
     for peer in peers[square]:
         # If square and peer do not have the same indices, continue
-        duplicate = values[square]  # Values to remove from each peer
-        if duplicate != values[peer]:
+        duplicate = values_copy[square]  # Values to remove from each peer
+        if duplicate != values_copy[peer]:
             continue
 
         # Find mutual peers and eliminate the two values
         for unit in peers[square] & (peers[peer]):
-            if not all(eliminate_depth_first_search(values, unit, digit) for digit in duplicate):
+            if not all(eliminate_depth_first_search(values_copy, unit, digit) for digit in duplicate):
                 return False
 
         # We found a naked pair and there cannot be two
         break
 
+    return values_copy
+
 
 def heuristic_hidden_pairs(values, square):
+    values_copy = values.copy()
     for peer in peers[square]:
-        if len(values[peer]) < 2:
+        if len(values_copy[peer]) < 2:
             continue
 
-        val_square = values[square]
-        val_peer = values[peer]
+        val_square = values_copy[square]
+        val_peer = values_copy[peer]
 
         # Get digits that are in both squares
         mutual_val = set(val_square) & set(val_peer)
@@ -175,7 +188,7 @@ def heuristic_hidden_pairs(values, square):
         # Get the common peers
         mutual_peers = peers[square].intersection(peers[peer])
         for mutual_peer in mutual_peers:
-            mutual_val = mutual_val - set(values[mutual_peer])
+            mutual_val = mutual_val - set(values_copy[mutual_peer])
         if mutual_val is None:
             continue
 
@@ -183,11 +196,14 @@ def heuristic_hidden_pairs(values, square):
         if len(mutual_val) == 2:
             eliminate_square = set(val_square) - mutual_val
             eliminate_peer = set(val_peer) - mutual_val
-            if not all(eliminate_depth_first_search(values, square, digit) for digit in eliminate_square) or not all(
-                    eliminate_depth_first_search(values, peer, digit) for digit in eliminate_peer
+            if not all(
+                    eliminate_depth_first_search(values_copy, square, digit) for digit in eliminate_square) or not all(
+                eliminate_depth_first_search(values_copy, peer, digit) for digit in eliminate_peer
             ):
                 return False
         break
+
+    return values_copy
 
 
 ########################################################################################################################
@@ -241,9 +257,12 @@ def eliminate_hill_climbing(values, square, digit):
 # Hill Climbing
 ####################
 
-def solve_hill_climbing(grid):
+def solve_hill_climbing(grid, use_random_parsing=False, heuristic=None):
     # TODO Check if we can use the same parse_grid function as in DFS
-    values = parse_grid_hill_climbing(grid)
+    if not use_random_parsing:
+        values = parse_grid_depth_first_search(grid, heuristic)
+    else:
+        values = parse_grid_hill_climbing(grid)
     values = random_3x3_unit_fill(values)
     return hill_climbing(values)
 
@@ -361,6 +380,71 @@ def hill_climbing(values):
 ########################################################################################################################
 ########################################################################################################################
 
+
+####################
+# Simulated Annealing
+####################
+
+def solve_simulated_annealing(grid, use_random_parsing=False, schedule_constant=0.99, max_steps=10000):
+    # TODO Check if we can use the same parse_grid function as in DFS
+    if not use_random_parsing:
+        values = parse_grid_depth_first_search(grid)
+    else:
+        values = parse_grid_hill_climbing(grid)
+    values = random_3x3_unit_fill(values)
+    return simulated_annealing(values, schedule_constant, max_steps)
+
+
+def get_random_swap(values):
+    # Copy the values to avoid modifying the original grid
+    values_copy = values.copy()
+
+    # Get the box containing the square, but exclude squares that have already been swapped
+    square = random.choice(squares)
+    neighbours = list(get_box_neighbours(square))
+    neighbour = random.choice(neighbours)
+
+    # Swap values
+    values_copy[square], values_copy[neighbour] = values_copy[neighbour], values_copy[square]
+    return values_copy
+
+
+def simulated_annealing(values, schedule_constant=0.99, max_steps=10000):
+    # Initialize the current state
+    current_values = values
+    t = 1
+    for _ in range(max_steps):
+        # Decrease the temperature
+        t = schedule_constant * t
+
+        # If the temperature is very low or if the board is solved, then
+        # we have reached a local maximum
+        if t == 0 or solved(current_values):
+            return current_values
+
+        # Get the potential swap
+        potential_values = get_random_swap(current_values)
+        # Calculate the score
+        delta_e = get_score(potential_values) - get_score(current_values)
+
+        # If the potential swap is better than the current state, we update the current state
+        if delta_e > 0:
+            current_values = potential_values
+
+        # If the potential swap is worse than the current state, we update the current
+        # state with a certain probability
+        elif random.random() < pow(math.e, delta_e / t):
+            current_values = potential_values
+
+    # If we reached this point, that means we have not solved the puzzle
+    # within the maximum number of steps
+    return values
+
+
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+
 #######################################
 # OTHER STUFF
 #######################################
@@ -436,13 +520,13 @@ def parse_grid_hill_climbing(grid):
     return values
 
 
-def parse_grid_depth_first_search(grid):
+def parse_grid_depth_first_search(grid, heuristic=None):
     """Convert grid to a dict of possible values, {square: digits}, or
     return False if a contradiction is detected."""
     # To start, every square can be any digit; then assign values from the grid.
     values = dict((square, digits) for square in squares)
     for square, digit in grid_values(grid).items():
-        if digit in digits and not assign_depth_first_search(values, square, digit):
+        if digit in digits and not assign_depth_first_search(values, square, digit, heuristic):
             return False  # (Fail if we can't assign digit to square.)
     return values
 
@@ -466,20 +550,33 @@ def solved(values):
     return values is not False and all(unitsolved(unit) for unit in unit_list)
 
 
-def solve_all(grids, name="", showif=0.0, algo="dfs"):
+def solve_all(grids, name="", showif=0.0, algo="dfs", use_random_parsing=False, heuristic=None, schedule_constant=0.99,
+              max_steps=10000):
     """Attempt to solve a sequence of grids. Report results.
     When showif is a number of seconds, display puzzles that take longer.
-    When showif is None, don't display any puzzles."""
+    When showif is None, don't display any puzzles.
+
+    algo: {hc: "Hill Climbing", sa: "Simulated Annealing", dfs: "Depth First Search"}
+    use_random_parsing: {True, False}
+
+    FOR SIMULATED ANNEALING:
+    schedule_constant: {0.0 < float < 1.0}
+    max_steps: {int}
+
+    FOR NON-RANDOM PARSING: heuristic: {None, 0: "Naked Pairs", 1: "Hidden Pairs"}
+    """
 
     def time_solve(grid):
         start_time = time.time_ns()
 
         if algo == "dfs":
-            values = solve_depth_first_search(grid)
+            values = solve_depth_first_search(grid, use_random_parsing, heuristic)
         elif algo == "hc":
-            values = solve_hill_climbing(grid)
+            values = solve_hill_climbing(grid, use_random_parsing, heuristic)
+        elif algo == "sa":
+            values = solve_simulated_annealing(grid, use_random_parsing, schedule_constant, max_steps)
         else:
-            values = solve_depth_first_search(grid)
+            values = solve_depth_first_search(grid, use_random_parsing, heuristic)
 
         end_time = time.time_ns() - start_time
 
@@ -495,7 +592,7 @@ def solve_all(grids, name="", showif=0.0, algo="dfs"):
     n = len(grids)
     if n >= 1:
         print(
-            f"Solved {sum(results)}/{n} {name} puzzles:\n - {n / sum(times) * 1e9:.2f} Hz\n - avg {(sum(times) / n / 1e6):.2f} ms | {(sum(times) / n):,.2f} ns\n - max {max(times) / 1e6:.2f} ms | {max(times):,} ns). "
+            f"Solved {sum(results)}/{n} {name} puzzles:\n - {n / sum(times) * 1e9:.2f} Hz\n - avg {(sum(times) / n / 1e6):.2f} ms | {(sum(times) / n):,.2f} ns\n - max {max(times) / 1e6:.2f} ms | {max(times):,} ns. "
         )
 
 
