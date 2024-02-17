@@ -244,16 +244,16 @@ def eliminate_hill_climbing(values, square, digit):
         if not all(eliminate_hill_climbing(values, square_2, digit_2) for square_2 in get_box_neighbours(square)):
             return False
     # (2) If a unit is reduced to only one place for a value digit, then put it there.
-    # Now we only check [units[square][2]] because we only care about squares in the same 3x3 unit
-    # The added surrounding brackets are to keep the same code logic as eliminate()
-    for unit in [units[square][2]]:
-        digit_places = [square for square in unit if digit in values[square]]
-        if len(digit_places) == 0:
-            return False  # Contradiction: no place for this value
-        elif len(digit_places) == 1:
-            # digit can only be in one place in unit; assign it there
-            if not assign_hill_climbing(values, digit_places[0], digit):
-                return False
+    # Now we only check units[square][2] because we only care about squares in the same 3x3 unit
+    unit = units[square][2]
+
+    digit_places = [square for square in unit if digit in values[square]]
+    if len(digit_places) == 0:
+        return False  # Contradiction: no place for this value
+    elif len(digit_places) == 1:
+        # digit can only be in one place in unit; assign it there
+        if not assign_hill_climbing(values, digit_places[0], digit):
+            return False
     return values
 
 
@@ -393,7 +393,7 @@ def hill_climbing(values):
 # Simulated Annealing
 ####################
 
-def solve_simulated_annealing(grid, use_random_parsing=False, heuristic=None, schedule_constant=0.99, max_steps=10000):
+def solve_simulated_annealing(grid, use_random_parsing=False, heuristic=None, schedule_constant=0.999, max_steps=10000):
     # TODO Check if we can use the same parse_grid function as in DFS
     if not use_random_parsing:
         values = parse_grid_depth_first_search(grid, heuristic)
@@ -417,7 +417,7 @@ def get_random_swap(values):
     return values_copy
 
 
-def simulated_annealing(values, schedule_constant=0.99, max_steps=10000):
+def simulated_annealing(values, schedule_constant=0.999, max_steps=10000):
     # Initialize the current state
     current_values = values
     global improvement_list
@@ -565,7 +565,7 @@ def solved(values):
     return values is not False and all(unitsolved(unit) for unit in unit_list)
 
 
-def solve_all(grids, name="", showif=0.0, algo="dfs", use_random_parsing=False, heuristic=None, schedule_constant=0.99,
+def solve_all(grids, name="", showif=0.0, algo="dfs", use_random_parsing=False, heuristic=None, schedule_constant=0.999,
               max_steps=10000):
     """Attempt to solve a sequence of grids. Report results.
     When showif is a number of seconds, display puzzles that take longer.
@@ -611,7 +611,7 @@ def solve_all(grids, name="", showif=0.0, algo="dfs", use_random_parsing=False, 
         )
     temps_moy = (sum(times) / n / 1e6)
     temps_max = max(times) / 1e6
-    sortie = [temps_moy,temps_max,sum(results)]
+    sortie = [temps_moy, temps_max, sum(results)]
     return sortie
 
 
@@ -644,7 +644,7 @@ def write_csv(filename, header, is_solved, data):
         csv_writer.writerow([header, is_solved] + data)
 
 
-def test_solve(sudoku_filename, schedule_constant=0.99, max_steps=10000):
+def test_solve(sudoku_filename, schedule_constant=0.999, max_steps=10000):
     # Load the sudoku file
     sudoku_file = from_file(sudoku_filename)
 
@@ -733,7 +733,7 @@ def test_solve(sudoku_filename, schedule_constant=0.99, max_steps=10000):
     solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic, schedule_constant, max_steps)
 
 
-def analysis(analysis_output, analysis_grid, schedule_constant=0.99, max_steps=10000):
+def analysis(analysis_output, analysis_grid, schedule_constant=0.999, max_steps=10000):
     global improvement_list
 
     # Algos: {hc: "Hill Climbing", dfs: "Depth First Search"}
@@ -846,47 +846,45 @@ def analysis(analysis_output, analysis_grid, schedule_constant=0.99, max_steps=1
     write_csv(analysis_output, header, is_solved, data)
 
 
-if __name__ == "__main__":
-    # Run tests
-    test()
-
-    # For simulated Annealing
-    schedule_constant = 0.999
-    max_steps = 10000
-    '''
-    temps_moy_nh=0
-    temps_max_nh=0
-    temps_moy_np=0
-    temps_max_np=0
-    temps_moy_hp=0
-    temps_max_hp=0
+def test_1000_solve(schedule_constant=0.999, max_steps=10000):
+    temps_moy_nh = 0
+    temps_max_nh = 0
+    temps_moy_np = 0
+    temps_max_np = 0
+    temps_moy_hp = 0
+    temps_max_hp = 0
     algo = "dfs"
     use_random_parsing = False
-    sudoku_filename= "sudoku_1000.txt"
+    sudoku_filename = "sudoku_1000.txt"
     sudoku_file = from_file(sudoku_filename)
     for i in range(1000):
-        
         heuristic = None
-        sortie_nh= solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic, schedule_constant, max_steps)
+        sortie_nh = solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic,
+                              schedule_constant,
+                              max_steps)
         temps_max_nh += sortie_nh[1]
         temps_moy_nh += sortie_nh[0]
 
         heuristic = 0
-        sortie_np= solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic, schedule_constant, max_steps)
+        sortie_np = solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic,
+                              schedule_constant,
+                              max_steps)
         temps_max_np += sortie_np[1]
         temps_moy_np += sortie_np[0]
 
         heuristic = 1
-        sortie_hp= solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic, schedule_constant, max_steps)
+        sortie_hp = solve_all(sudoku_file, sudoku_filename, None, algo, use_random_parsing, heuristic,
+                              schedule_constant,
+                              max_steps)
         temps_max_hp += sortie_hp[1]
         temps_moy_hp += sortie_hp[0]
-    n=1000
-    temps_moy_nh=temps_moy_nh/n
-    temps_max_nh=temps_max_nh/n
-    temps_moy_np=temps_moy_np/n
-    temps_max_np=temps_max_np/n
-    temps_moy_hp=temps_moy_hp/n
-    temps_max_hp=temps_max_hp/n
+    n = 1000
+    temps_moy_nh = temps_moy_nh / n
+    temps_max_nh = temps_max_nh / n
+    temps_moy_np = temps_moy_np / n
+    temps_max_np = temps_max_np / n
+    temps_moy_hp = temps_moy_hp / n
+    temps_max_hp = temps_max_hp / n
     print(temps_moy_nh)
     print(temps_max_nh)
     print()
@@ -898,81 +896,82 @@ if __name__ == "__main__":
     '''
 
     '''
-    temps_moy_hc=0
-    temps_max_hc=0
-    temps_moy_hc_r=0
-    temps_max_hc_r=0
-    temps_moy_sa_p=0
-    temps_max_sa_p=0
-    temps_moy_sa_p_r=0
-    temps_max_sa_p_r=0
-    temps_moy_sa_g=0
-    temps_max_sa_g=0
-    temps_moy_sa_g_r=0
-    temps_max_sa_g_r=0
-    prop_hc=0
-    prop_sa_p=0
-    prop_sa_g=0
-    prop_hc_r=0
-    prop_sa_p_r=0
-    prop_sa_g_r=0
+    temps_moy_hc = 0
+    temps_max_hc = 0
+    temps_moy_hc_r = 0
+    temps_max_hc_r = 0
+    temps_moy_sa_p = 0
+    temps_max_sa_p = 0
+    temps_moy_sa_p_r = 0
+    temps_max_sa_p_r = 0
+    temps_moy_sa_g = 0
+    temps_max_sa_g = 0
+    temps_moy_sa_g_r = 0
+    temps_max_sa_g_r = 0
+    prop_hc = 0
+    prop_sa_p = 0
+    prop_sa_g = 0
+    prop_hc_r = 0
+    prop_sa_p_r = 0
+    prop_sa_g_r = 0
 
-    sudoku_filename= "sudoku_100.txt"
+    sudoku_filename = "sudoku_100.txt"
     sudoku_file = from_file(sudoku_filename)
     for i in range(30):
-        
         heuristic = None
-        sortie_hc= solve_all(sudoku_file, sudoku_filename, None, "hc", False, heuristic, schedule_constant, max_steps)
+        sortie_hc = solve_all(sudoku_file, sudoku_filename, None, "hc", False, heuristic, schedule_constant, max_steps)
         temps_max_hc += sortie_hc[1]
         temps_moy_hc += sortie_hc[0]
         prop_hc += sortie_hc[2]
 
-        sortie_hc_r= solve_all(sudoku_file, sudoku_filename, None, "hc", True, heuristic, schedule_constant, max_steps)
+        sortie_hc_r = solve_all(sudoku_file, sudoku_filename, None, "hc", True, heuristic, schedule_constant, max_steps)
         temps_max_hc_r += sortie_hc_r[1]
         temps_moy_hc_r += sortie_hc_r[0]
         prop_hc_r += sortie_hc_r[2]
 
-
         schedule_constant = 0.99
-        sortie_sa_p= solve_all(sudoku_file, sudoku_filename, None, "sa", False, heuristic, schedule_constant, max_steps)
+        sortie_sa_p = solve_all(sudoku_file, sudoku_filename, None, "sa", False, heuristic, schedule_constant,
+                                max_steps)
         temps_max_sa_p += sortie_sa_p[1]
         temps_moy_sa_p += sortie_sa_p[0]
         prop_sa_p += sortie_sa_p[2]
 
-        sortie_sa_r= solve_all(sudoku_file, sudoku_filename, None, "sa", True, heuristic, schedule_constant, max_steps)
+        sortie_sa_r = solve_all(sudoku_file, sudoku_filename, None, "sa", True, heuristic, schedule_constant, max_steps)
         temps_max_sa_p_r += sortie_sa_r[1]
         temps_moy_sa_p_r += sortie_sa_r[0]
         prop_sa_p_r += sortie_sa_r[2]
 
         schedule_constant = 0.999
-        sortie_sa_g= solve_all(sudoku_file, sudoku_filename, None, "sa", False, heuristic, schedule_constant, max_steps)
+        sortie_sa_g = solve_all(sudoku_file, sudoku_filename, None, "sa", False, heuristic, schedule_constant,
+                                max_steps)
         temps_max_sa_g += sortie_sa_g[1]
         temps_moy_sa_g += sortie_sa_g[0]
         prop_sa_g += sortie_sa_g[2]
 
-        sortie_sa_g_r= solve_all(sudoku_file, sudoku_filename, None, "sa", True, heuristic, schedule_constant, max_steps)
+        sortie_sa_g_r = solve_all(sudoku_file, sudoku_filename, None, "sa", True, heuristic, schedule_constant,
+                                  max_steps)
         temps_max_sa_g_r += sortie_sa_g_r[1]
         temps_moy_sa_g_r += sortie_sa_g_r[0]
         prop_sa_g_r += sortie_sa_g_r[2]
-    n=30
-    temps_moy_hc=temps_moy_hc/n
-    temps_max_hc=temps_max_hc/n
-    temps_moy_hc_r=temps_moy_hc_r/n
-    temps_max_hc_r=temps_max_hc_r/n
-    temps_moy_sa_p=temps_moy_sa_p/n
-    temps_max_sa_p=temps_max_sa_p/n
-    temps_moy_sa_p_r=temps_moy_sa_p_r/n
-    temps_max_sa_p_r=temps_max_sa_p_r/n
-    temps_moy_sa_g=temps_moy_sa_g/n
-    temps_max_sa_g=temps_max_sa_g/n
-    temps_moy_sa_g_r=temps_moy_sa_g_r/n
-    temps_max_sa_g_r=temps_max_sa_g_r/n
-    prop_hc=prop_hc/n
-    prop_sa_p=prop_sa_p/n
-    prop_sa_g=prop_sa_g/n
-    prop_hc_r=prop_hc_r/n
-    prop_sa_p_r=prop_sa_p_r/n
-    prop_sa_g_r=prop_sa_g_r/n
+    n = 30
+    temps_moy_hc = temps_moy_hc / n
+    temps_max_hc = temps_max_hc / n
+    temps_moy_hc_r = temps_moy_hc_r / n
+    temps_max_hc_r = temps_max_hc_r / n
+    temps_moy_sa_p = temps_moy_sa_p / n
+    temps_max_sa_p = temps_max_sa_p / n
+    temps_moy_sa_p_r = temps_moy_sa_p_r / n
+    temps_max_sa_p_r = temps_max_sa_p_r / n
+    temps_moy_sa_g = temps_moy_sa_g / n
+    temps_max_sa_g = temps_max_sa_g / n
+    temps_moy_sa_g_r = temps_moy_sa_g_r / n
+    temps_max_sa_g_r = temps_max_sa_g_r / n
+    prop_hc = prop_hc / n
+    prop_sa_p = prop_sa_p / n
+    prop_sa_g = prop_sa_g / n
+    prop_hc_r = prop_hc_r / n
+    prop_sa_p_r = prop_sa_p_r / n
+    prop_sa_g_r = prop_sa_g_r / n
 
     print("resultats")
     print(temps_moy_hc)
@@ -1002,11 +1001,20 @@ if __name__ == "__main__":
     print(temps_moy_sa_g_r)
     print(temps_max_sa_g_r)
     print(prop_sa_g_r)
-    '''
+
+
+if __name__ == "__main__":
+    # Run tests
+    test()
+
+    # For simulated Annealing
+    schedule_constant = 0.999
+    max_steps = 10000
 
     # Algos: {hc: "Hill Climbing", dfs: "Depth First Search"}
     test_solve("sudoku_100.txt", schedule_constant, max_steps)
     test_solve("sudoku_1000.txt", schedule_constant, max_steps)
+    # test_1000_solve(schedule_constant, max_steps)
     # analysis("analysis.csv", grid2, schedule_constant, max_steps)
 
     # solve_all([random_puzzle() for _ in range(99)], "random", None, algo, use_random_parsing, heuristic,
